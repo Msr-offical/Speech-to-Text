@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech To Text Convertor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="main-content-container">
+        <h1>Speech To Text Convertor</h1>
+        
+        <div class="card">
+            <h2>Audio Input</h2>
+            <div class="input-section">
+                <div class="file-upload">
+                    <h3>Upload Audio File</h3>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <p>Drag & drop your audio file here or click to browse</p>
+                    </div>
+                    <div class="status-container">
+                        <div class="status-indicator" id="fileStatus"></div>
+                        <span id="fileStatusText">No file selected</span>
+                    </div>
+                </div>
+                
+                <div class="record-section">
+                    <h3>Record Audio</h3>
+                    <button class="record-button" id="recordButton">
+                        <i class="fas fa-microphone"></i>
+                        <span>Start Recording</span>
+                    </button>
+                    <div class="status-container">
+                        <div class="status-indicator" id="recordStatus"></div>
+                        <span id="recordStatusText">Ready to record</span>
+                    </div>
+                </div>
+            </div>
+            <div class="button-container" id="transcribeButtonContainer" style="display: none;">
+                <button class="transcribe-button" id="transcribeButton">
+                    <i class="fas fa-wave-square button-icon"></i>
+                    Transcribe Audio
+                </button>
+            </div>
+        </div>
+
+        <div id="stepsContainer" class="steps-card">
+            <h2 class="steps-title">Convert audio to text in 3 steps</h2>
+            <div class="steps-blocks">
+                <div class="step-block">
+                    <div class="step-icon"><i class="fas fa-upload"></i></div>
+                    <div class="step-label">1. Upload a file</div>
+                </div>
+                <div class="step-block">
+                    <div class="step-icon"><i class="fas fa-language"></i></div>
+                    <div class="step-label">2. Convert audio to text</div>
+                </div>
+                <div class="step-block">
+                    <div class="step-icon"><i class="fas fa-download"></i></div>
+                    <div class="step-label">3. Download your transcript</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Transcription Result</h2>
+            <div id="transcriptionResult" class="text-block">
+                <div class="loading-spinner" id="loadingSpinner" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Transcribing...</span>
+                </div>
+                <div id="transcriptionText"></div>
+            </div>
+            <div class="button-container" id="downloadTranscriptionContainer" style="display:none; margin-top: 1rem;">
+                <button id="downloadTranscriptionBtn" class="transcribe-button">
+                    <i class="fas fa-download button-icon"></i>
+                    Download Transcription
+                </button>
+                <button id="copyTranscriptionBtn" class="transcribe-button" style="margin-left: 1rem;">
+                    <i class="fas fa-copy button-icon"></i>
+                    Copy to Clipboard
+                </button>
+            </div>
+        </div>
+
+        <div class="button-container" style="margin-bottom: 24px;">
+            <button id="werButton" class="button">Calculate WER</button>
+        </div>
+
+        <!-- WER Calculator Section (not modal) -->
+        <div id="werSection" class="card wer-section" style="display:none;">
+            <h2 class="wer-title">Word Error Rate (WER) Calculator</h2>
+            <form id="werForm" class="wer-form">
+                <div class="input-group">
+                    <label for="groundTruthInput" class="wer-label">Enter Ground Truth:</label>
+                    <textarea 
+                        id="groundTruthInput" 
+                        class="text-block wer-textarea" 
+                        rows="4" 
+                        placeholder="Enter the correct transcription here..."
+                    ></textarea>
+                </div>
+                
+                <div class="divider">
+                    <span class="divider-line"></span>
+                    <span class="divider-text">or</span>
+                    <span class="divider-line"></span>
+                </div>
+                
+                <div class="file-upload-group">
+                    <label for="groundTruthFile" class="wer-label">Upload Ground Truth File (.txt):</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="groundTruthFile" accept=".txt" class="file-input" />
+                        <label for="groundTruthFile" class="file-label-button">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            Choose File
+                        </label>
+                        <span id="groundTruthFileName" class="file-name">No file chosen</span>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button id="toggleViewButton" class="wer-button secondary" type="button">
+                        <i class="fas fa-exchange-alt"></i>
+                        Switch to Text Differences
+                    </button>
+                    <button id="calculateWerButton" class="wer-button primary" type="button">
+                        <i class="fas fa-calculator"></i>
+                        Compare & Calculate WER
+                    </button>
+                </div>
+            </form>
+
+            <div id="werResults" class="wer-results"></div>
+            
+            <button id="showGraphsBtn" class="wer-button graph-button" type="button">
+                <i class="fas fa-chart-bar"></i>
+                Show Graphs
+            </button>
+
+            <div id="werGraphsSection" class="graphs-section" style="display:none;">
+                <h3 class="graphs-title">WER Analysis Graphs</h3>
+                <div id="werGraphsImages" class="graphs-grid"></div>
+            </div>
+            
+            <div id="textDiffView" class="text-diff-view"></div>
+        </div>
+
+        <style>
+        .wer-section {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(30, 58, 138, 0.1);
+        }
+
+        .wer-title {
+            color: var(--primary-color);
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .wer-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .wer-label {
+            color: var(--primary-color);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .wer-textarea {
+            border: 2px solid rgba(30, 58, 138, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            resize: vertical;
+            min-height: 120px;
+            background: #f8fafc;
+        }
+
+        .wer-textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+            outline: none;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1rem 0;
+            gap: 1rem;
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: rgba(30, 58, 138, 0.1);
+        }
+
+        .divider-text {
+            color: #64748b;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0 1rem;
+        }
+
+        .file-upload-group {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 2px dashed rgba(30, 58, 138, 0.2);
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label-button {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .file-label-button:hover {
+            background: var(--accent-color);
+            transform: translateY(-1px);
+        }
+
+        .file-name {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+
+        .wer-button {
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .wer-button.primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .wer-button.secondary {
+            background: #f1f5f9;
+            color: var(--primary-color);
+        }
+
+        .wer-button.graph-button {
+            background: var(--accent-color);
+            color: var(--primary-color);
+            margin: 2rem auto;
+            display: flex;
+        }
+
+        .wer-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .wer-results {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid rgba(30, 58, 138, 0.1);
+        }
+
+        .graphs-section {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .graphs-title {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .graphs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            justify-items: center;
+        }
+
+        .text-diff-view {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid rgba(30, 58, 138, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .wer-button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .file-input-wrapper {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .file-label-button {
+                text-align: center;
+                justify-content: center;
+            }
+        }
+        </style>
+
+        <div class="card" id="comparisonSection" style="display: none;">
+            <h2>Comparison Results</h2>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <h3>WER Score</h3>
+                    <div id="werScore" class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Substitutions</h3>
+                    <div id="substitutionsCount" class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Deletions</h3>
+                    <div id="deletionsCount" class="stat-value">-</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Insertions</h3>
+                    <div id="insertionsCount" class="stat-value">-</div>
+                </div>
+            </div>
+            
+            <div class="comparison-details">
+                <h3>Word-Level Comparison</h3>
+                <div id="wordComparison" class="text-block"></div>
+            </div>
+
+            <div class="substitutions-list">
+                <h3>Substituted Words</h3>
+                <div id="substitutionsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        function updateTranscription(text) {
+            const transcriptionDiv = document.getElementById('transcription');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const wordCount = text.split(/\s+/).length;
+            
+            if (wordCount <= 100) {
+                // For small texts, show everything at once
+                transcriptionDiv.innerHTML = text;
+                loadMoreBtn.style.display = 'none';
+            } else {
+                // For larger texts, show first 500 words
+                const words = text.split(/\s+/);
+                const initialText = words.slice(0, 500).join(' ');
+                const remainingText = words.slice(500).join(' ');
+                
+                transcriptionDiv.innerHTML = initialText;
+                
+                if (remainingText) {
+                    loadMoreBtn.style.display = 'block';
+                    loadMoreBtn.onclick = function() {
+                        transcriptionDiv.innerHTML += ' ' + remainingText;
+                        loadMoreBtn.style.display = 'none';
+                    };
+                } else {
+                    loadMoreBtn.style.display = 'none';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
